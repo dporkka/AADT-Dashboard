@@ -1,0 +1,51 @@
+{
+  "info": {
+    "name": "Traffic Forecast & Corridor Scenario API",
+    "description": "RapidAPI consumer collection. Inputs are caller-supplied traffic values; outputs are calculated scenarios, not official DOT forecasts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "rapidapiHost", "value": "YOUR_RAPIDAPI_HOST", "type": "string"},
+    {"key": "rapidapiKey", "value": "", "type": "string"}
+  ],
+  "item": [
+    {
+      "name": "Forecast traffic scenario",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json", "type": "text"},
+          {"key": "X-RapidAPI-Key", "value": "{{rapidapiKey}}", "type": "text"},
+          {"key": "X-RapidAPI-Host", "value": "{{rapidapiHost}}", "type": "text"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"external_id\": \"site-123\",\n  \"current_year\": 2025,\n  \"current_aadt\": 24000,\n  \"reference_year\": 2045,\n  \"reference_aadt\": 36000,\n  \"target_years\": [2030, 2035, 2045],\n  \"k_factor_percent\": 9,\n  \"d_factor_percent\": 55,\n  \"t_factor_percent\": 8\n}",
+          "options": {"raw": {"language": "json"}}
+        },
+        "url": {
+          "raw": "https://{{rapidapiHost}}/v1/forecast",
+          "protocol": "https",
+          "host": ["{{rapidapiHost}}"],
+          "path": ["v1", "forecast"]
+        }
+      }
+    },
+    {
+      "name": "Marketplace health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {"key": "X-RapidAPI-Key", "value": "{{rapidapiKey}}", "type": "text"},
+          {"key": "X-RapidAPI-Host", "value": "{{rapidapiHost}}", "type": "text"}
+        ],
+        "url": {
+          "raw": "https://{{rapidapiHost}}/v1/health",
+          "protocol": "https",
+          "host": ["{{rapidapiHost}}"],
+          "path": ["v1", "health"]
+        }
+      }
+    }
+  ]
+}

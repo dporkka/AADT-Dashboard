@@ -1,0 +1,87 @@
+name: "Traffic Forecast & Corridor Scenario API"
+tagline: "Project caller-supplied AADT into future-year traffic and K/D/T planning scenarios"
+description: |
+  Forecast traffic scenarios from AADT values you already have rights to use.
+  Supply a current AADT, a future/reference AADT, years, and optional K/D/T factors.
+  Receive derived annual growth, future AADT, design-hour, directional, truck, batch,
+  and corridor-level analytical outputs.
+
+  The API does not redistribute source DOT traffic datasets. All source traffic values
+  are caller supplied, and returned projections are calculated scenarios rather than
+  official transportation-agency forecasts.
+
+category: "Data"
+tags:
+  - traffic
+  - aadt
+  - transportation
+  - site-selection
+  - forecasting
+  - corridor-analysis
+  - commercial-real-estate
+
+pricing:
+  status: "experiment-until-demand-validated"
+  plans:
+    - name: BASIC
+      price_usd: 0
+      requests_per_month: 50
+    - name: PRO
+      price_usd: 29
+      requests_per_month: 2000
+    - name: ULTRA
+      price_usd: 99
+      requests_per_month: 10000
+    - name: MEGA
+      price_usd: 249
+      requests_per_month: 50000
+
+api:
+  production_origin: "SET_STABLE_HTTPS_PRODUCTION_ORIGIN"
+  authentication: "RapidAPI Runtime"
+  origin_verification_header: "X-RapidAPI-Proxy-Secret"
+  origin_verification_env: "RAPIDAPI_PROXY_SECRET"
+  ssl_required: true
+
+endpoints:
+  - path: /v1/forecast
+    method: POST
+    description: Project one caller-supplied AADT scenario to one or more target years.
+    popular: true
+  - path: /v1/batch
+    method: POST
+    description: Project up to 200 independent caller-supplied scenarios in one request.
+  - path: /v1/corridor
+    method: POST
+    description: Project up to 500 caller-supplied segments and summarize corridor ranges/means.
+  - path: /v1/health
+    method: GET
+    description: Marketplace-authenticated service health.
+
+commercial_boundary:
+  bundled_source_data: false
+  customer_supplied_inputs_only: true
+  official_dot_forecast: false
+  checked_in_adot_workbooks_in_container: false
+
+launch_readiness:
+  source_redistribution_required: false
+  algorithm_rights_clear: true
+  stable_https_origin: false
+  rapidapi_proxy_secret_configured: false
+  terms_url_published: false
+  privacy_url_published: false
+  support_contact_verified: false
+  performance_benchmark_complete: false
+  demand_validation_complete: false
+  marketplace_smoke_test_200_ok: false
+
+support:
+  documentation_url: "SET_DOCUMENTATION_URL"
+  support_email: "SET_VERIFIED_SUPPORT_EMAIL"
+  status_url: "SET_STATUS_URL"
+
+terms:
+  terms_url: "SET_TERMS_URL"
+  privacy_url: "SET_PRIVACY_URL"
+  customer_responsibility: "Caller must have rights/authorization for submitted traffic data."

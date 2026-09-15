@@ -1,8 +1,8 @@
 """Marketplace-ready traffic forecasting API.
 
 The service accepts caller-supplied traffic counts/reference forecasts and returns
-BusinessFinder-derived calculations. It does not bundle, query, or redistribute the
-ADOT spreadsheets stored elsewhere in this repository.
+derived calculations. It does not bundle, query, or redistribute the ADOT
+spreadsheets stored elsewhere in this repository.
 """
 
 from __future__ import annotations
@@ -12,10 +12,15 @@ import os
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, FastAPI, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 
-from forecast import ForecastInputs, compound_annual_growth_rate, project_aadt, summarize_projected_aadt
+from forecast import (
+    ForecastInputs,
+    compound_annual_growth_rate,
+    project_aadt,
+    summarize_projected_aadt,
+)
 
 
 app = FastAPI(
@@ -29,21 +34,28 @@ app = FastAPI(
 router = APIRouter(prefix="/v1")
 
 
-class ScenarioInput(BaseModel):
+class TrafficInputs(BaseModel):
     external_id: str | None = Field(default=None, max_length=128)
     current_year: int = Field(ge=1900, le=2200)
     current_aadt: float = Field(gt=0, le=100_000_000)
     reference_year: int = Field(ge=1901, le=2300)
     reference_aadt: float = Field(gt=0, le=100_000_000)
-    target_years: list[int] = Field(min_length=1, max_length=50)
     k_factor_percent: float | None = Field(default=None, ge=0, le=100)
     d_factor_percent: float | None = Field(default=None, ge=0, le=100)
     t_factor_percent: float | None = Field(default=None, ge=0, le=100)
 
     @model_validator(mode="after")
-    def validate_years(self) -> "ScenarioInput":
+    def validate_reference_year(self) -> "TrafficInputs":
         if self.reference_year <= self.current_year:
             raise ValueError("reference_year must be greater than current_year")
+        return self
+
+
+class ScenarioInput(TrafficInputs):
+    target_years: list[int] = Field(min_length=1, max_length=50)
+
+    @model_validator(mode="after")
+    def validate_target_years(self) -> "ScenarioInput":
         if any(year < self.current_year for year in self.target_years):
             raise ValueError("target_years cannot contain years before current_year")
         if any(year > self.current_year + 100 for year in self.target_years):
@@ -84,7 +96,7 @@ class BatchResponse(BaseModel):
     calculated_at: str
 
 
-class CorridorSegment(ScenarioInput):
+class CorridorSegment(TrafficInputs):
     segment_id: str = Field(min_length=1, max_length=128)
     route: str | None = Field(default=None, max_length=128)
     bmp: float | None = None
@@ -107,6 +119,10 @@ class CorridorRequest(BaseModel):
             if self.target_year < segment.current_year:
                 raise ValueError(
                     f"target_year cannot be earlier than current_year for {segment.segment_id}"
+                )
+            if self.target_year > segment.current_year + 100:
+                raise ValueError(
+                    f"target_year is limited to 100 years beyond current_year for {segment.segment_id}"
                 )
         return self
 
@@ -153,7 +169,7 @@ def verify_marketplace_gateway(
         )
 
 
-def _inputs(value: ScenarioInput) -> ForecastInputs:
+def _inputs(value: TrafficInputs) -> ForecastInputs:
     return ForecastInputs(
         current_year=value.current_year,
         current_aadt=value.current_aadt,
@@ -168,7 +184,10 @@ def _inputs(value: ScenarioInput) -> ForecastInputs:
 def _result(value: ScenarioInput) -> ScenarioResult:
     inputs = _inputs(value)
     growth = compound_annual_growth_rate(inputs)
-    points = [ForecastPoint(**project_aadt(inputs, year).__dict__) for year in value.target_years]
+    points = [
+        ForecastPoint(**project_aadt(inputs, year).__dict__)
+        for year in value.target_years
+    ]
     return ScenarioResult(
         external_id=value.external_id,
         annual_growth_rate=round(growth, 8),
@@ -189,7 +208,7 @@ def _now() -> str:
 @router.post("/forecast", response_model=ForecastResponse)
 def forecast(
     payload: ScenarioInput,
-    _: None = Annotated[None, verify_marketplace_gateway],
+    _: None = Depends(verify_marketplace_gateway),
 ) -> ForecastResponse:
     return ForecastResponse(result=_result(payload), calculated_at=_now())
 
@@ -197,7 +216,7 @@ def forecast(
 @router.post("/batch", response_model=BatchResponse)
 def batch_forecast(
     payload: BatchRequest,
-    _: None = Annotated[None, verify_marketplace_gateway],
+    _: None = Depends(verify_marketplace_gateway),
 ) -> BatchResponse:
     return BatchResponse(
         results=[_result(item) for item in payload.scenarios],
@@ -208,7 +227,7 @@ def batch_forecast(
 @router.post("/corridor", response_model=CorridorResponse)
 def corridor_analysis(
     payload: CorridorRequest,
-    _: None = Annotated[None, verify_marketplace_gateway],
+    _: None = Depends(verify_marketplace_gateway),
 ) -> CorridorResponse:
     rows: list[CorridorSegmentResult] = []
     summary_values: list[tuple[float, float | None]] = []
@@ -249,9 +268,13 @@ def corridor_analysis(
 
 @router.get("/health")
 def marketplace_health(
-    _: None = Annotated[None, verify_marketplace_gateway],
+    _: None = Depends(verify_marketplace_gateway),
 ) -> dict[str, str]:
-    return {"status": "healthy", "service": "traffic-forecast", "timestamp": _now()}
+    return {
+        "status": "healthy",
+        "service": "traffic-forecast",
+        "timestamp": _now(),
+    }
 
 
 @app.get("/healthz", include_in_schema=False)
